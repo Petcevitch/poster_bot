@@ -1,1 +1,13 @@
 src/.env
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+
+# Temporary files
+*.jpg
+*.png
+temp.*
