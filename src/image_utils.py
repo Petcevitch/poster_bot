@@ -2,7 +2,7 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 
 def overlay_text_on_image(image_path, text_a, text_b, y_a_percent=8, y_b_percent=80,
-                          font_path="assets/fonts/Roboto-Regular.ttf", font_size_a=60, font_size_b=320,
+                          font_path="assets/fonts/Roboto-Regular.ttf", font_size_a=60, font_size_b=420,
                           fill_color="white", stroke_width=2, stroke_fill="black"):
     img = Image.open(image_path).convert("RGBA")
     width, height = img.size
