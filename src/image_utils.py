@@ -19,21 +19,20 @@ def overlay_text_on_image(
     padding=35
 ):
     """
-    Накладывает две надписи на изображение с плашкой под нижним текстом.
-    Нижний текст центрирован **визуально** по высоте плашки.
+    Накладывает текст A (верх) и текст B (низ с плашкой).
+    Нижний текст визуально центрируется внутри плашки.
     """
 
     img = Image.open(image_path).convert("RGBA")
     width, height = img.size
     draw = ImageDraw.Draw(img)
 
-    # ---------------------
+    # -------------------
     # Верхний текст (A)
-    # ---------------------
+    # -------------------
     font_a = ImageFont.truetype(font_path, font_size_a)
     bbox_a = draw.textbbox((0, 0), text_a, font=font_a)
     text_width_a = bbox_a[2] - bbox_a[0]
-    text_height_a = bbox_a[3] - bbox_a[1]
 
     x_a = (width - text_width_a) / 2
     y_a = height * (y_a_percent / 100)
@@ -47,23 +46,20 @@ def overlay_text_on_image(
         stroke_fill=stroke_fill
     )
 
-    # ---------------------
+    # -------------------
     # Нижний текст (B) + плашка
-    # ---------------------
+    # -------------------
     font_b = ImageFont.truetype(font_path, font_size_b)
-    bbox_b = draw.textbbox((0, 0), text_b, font=font_b)
-    text_width_b = bbox_b[2] - bbox_b[0]
-
-    # Метрики шрифта для визуального центрирования
     ascent, descent = font_b.getmetrics()
     text_vheight = ascent + descent
 
-    # Высота блока плашки
+    bbox_b = draw.textbbox((0, 0), text_b, font=font_b)
+    text_width_b = bbox_b[2] - bbox_b[0]
+
     block_height = text_vheight + padding * 2
     block_center_y = height * (y_b_percent / 100)
     rect_y0 = block_center_y - block_height / 2
     rect_y1 = rect_y0 + block_height
-
     rect_x0 = (width - text_width_b) / 2 - padding
     rect_x1 = rect_x0 + text_width_b + padding * 2
 
@@ -78,7 +74,7 @@ def overlay_text_on_image(
         img = Image.alpha_composite(img, overlay)
         draw = ImageDraw.Draw(img)
 
-    # Текст визуально по центру плашки
+    # Визуальное центрирование текста в плашке
     x_b = (width - text_width_b) / 2
     y_b = rect_y0 + (block_height - text_vheight) / 2
 
@@ -91,9 +87,9 @@ def overlay_text_on_image(
         stroke_fill=stroke_fill
     )
 
-    # ---------------------
+    # -------------------
     # OUTPUT
-    # ---------------------
+    # -------------------
     output = io.BytesIO()
     img.save(output, format="PNG")
     output.seek(0)

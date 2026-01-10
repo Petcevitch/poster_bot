@@ -14,57 +14,105 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Этапы разговора
-TEXT_A, TEXT_B, COLOR_CHOICE, PHOTO = range(4)
+TEXT_A, TEXT_B_CHOICE, TEXT_B, COLOR_CHOICE, PHOTO = range(5)
+
+# Готовые варианты текста для нижней надписи
+ROUND_CHOICES = [
+    "ПЕРВЫЙ РАУНД",
+    "ВТОРОЙ РАУНД ВЕРХ",
+    "ВТОРОЙ РАУНД НИЗ",
+    "ТРЕТИЙ РАУНД НИЗ",
+    "ЧЕТВЕРТЬФИНАЛ",
+    "ПОЛУФИНАЛ",
+    "ФИНАЛ",
+    "СВОЙ ТЕКСТ"
+]
 
 COLOR_CHOICES = [
     ("Красный", "red"),
     ("Жёлтый", "yellow"),
     ("Зелёный", "green"),
     ("Коричневый", "brown"),
-    ("Синий", "lightblue"),
+    ("Синий", "blue"),
     ("Розовый", "pink"),
     ("Чёрный", "black")
 ]
 
-# Стартовый обработчик
+# -----------------------
+# Команда /start
+# -----------------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Давай создадим твой постер.\nВведите текст A (вверху):")
+    await update.message.reply_text("Привет! Введи текст для верхней надписи:")
     return TEXT_A
 
+# -----------------------
 # Ввод текста A
+# -----------------------
 async def get_text_a(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["text_a"] = update.message.text
-    await update.message.reply_text("Отлично! Теперь введи текст B (внизу):")
-    return TEXT_B
+    # Показать варианты нижнего текста
+    keyboard = []
+    for i in range(0, len(ROUND_CHOICES), 2):
+        row = [InlineKeyboardButton(ROUND_CHOICES[i], callback_data=ROUND_CHOICES[i])]
+        if i+1 < len(ROUND_CHOICES):
+            row.append(InlineKeyboardButton(ROUND_CHOICES[i+1], callback_data=ROUND_CHOICES[i+1]))
+        keyboard.append(row)
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Выберите текст для нижней надписи:", reply_markup=reply_markup)
+    return TEXT_B_CHOICE
 
-# Ввод текста B
+# -----------------------
+# Обработка выбора нижнего текста
+# -----------------------
+async def text_b_choice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    choice = query.data
+    if choice == "СВОЙ ТЕКСТ":
+        await query.message.reply_text("Введите свой текст для нижней надписи:")
+        return TEXT_B
+    else:
+        context.user_data["text_b"] = choice
+        await show_color_choice(query, context)
+        return COLOR_CHOICE
+
+# -----------------------
+# Получение собственного текста B
+# -----------------------
 async def get_text_b(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["text_b"] = update.message.text
+    await show_color_choice(update, context)
+    return COLOR_CHOICE
 
-    # Инлайн-кнопки для выбора цвета плашки
+# -----------------------
+# Показ выбора цвета плашки
+# -----------------------
+async def show_color_choice(update_or_query, context):
     keyboard = []
     for i in range(0, len(COLOR_CHOICES), 2):
         row = [InlineKeyboardButton(COLOR_CHOICES[i][0], callback_data=COLOR_CHOICES[i][1])]
         if i+1 < len(COLOR_CHOICES):
             row.append(InlineKeyboardButton(COLOR_CHOICES[i+1][0], callback_data=COLOR_CHOICES[i+1][1]))
         keyboard.append(row)
-
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Выберите цвет плашки для нижнего текста:", reply_markup=reply_markup)
-    return COLOR_CHOICE
+    if hasattr(update_or_query, "message"):
+        await update_or_query.message.reply_text("Выберите цвет плашки:", reply_markup=reply_markup)
+    else:
+        await update_or_query.edit_message_text("Выберите цвет плашки:", reply_markup=reply_markup)
 
+# -----------------------
 # Обработка выбора цвета
+# -----------------------
 async def color_choice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     context.user_data["bg_color"] = query.data
-    await query.edit_message_text(text=f"Выбран цвет: {query.data}")
-
-    # Запрос фото
-    await query.message.reply_text("Теперь отправь фото для генерации постера:")
+    await query.message.reply_text("Теперь отправьте фото для генерации постера:")
     return PHOTO
 
+# -----------------------
 # Получение фото и генерация постера
+# -----------------------
 async def get_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photo_file = await update.message.photo[-1].get_file()
     photo_path = "temp.jpg"
@@ -74,7 +122,6 @@ async def get_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text_b = context.user_data.get("text_b", "Текст снизу")
     bg_color = context.user_data.get("bg_color", None)
 
-    from image_utils import overlay_text_on_image
     image_bytes = overlay_text_on_image(
         photo_path,
         text_a,
@@ -83,18 +130,22 @@ async def get_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         font_size_a=60,
         font_size_b=100,
         bg_color=bg_color,
-        padding=35  # увеличенный отступ
+        padding=35
     )
 
     await update.message.reply_photo(photo=InputFile(image_bytes, filename="poster.png"))
     return ConversationHandler.END
 
+# -----------------------
 # Команда /cancel
+# -----------------------
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Создание постера отменено.")
     return ConversationHandler.END
 
+# -----------------------
 # Основная функция запуска бота
+# -----------------------
 def main():
     if not BOT_TOKEN:
         logger.error("Не найден токен бота. Добавьте BOT_TOKEN в .env")
@@ -106,6 +157,7 @@ def main():
         entry_points=[CommandHandler("start", start)],
         states={
             TEXT_A: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_text_a)],
+            TEXT_B_CHOICE: [CallbackQueryHandler(text_b_choice_handler)],
             TEXT_B: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_text_b)],
             COLOR_CHOICE: [CallbackQueryHandler(color_choice_handler)],
             PHOTO: [MessageHandler(filters.PHOTO, get_photo)],
@@ -114,7 +166,6 @@ def main():
     )
 
     app.add_handler(conv_handler)
-
     logger.info("Бот запущен...")
     app.run_polling()
 
