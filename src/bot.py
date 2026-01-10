@@ -146,8 +146,10 @@ async def get_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         font_size_b=100,
         bg_color_a=bg_color_a,
         bg_color_b=bg_color_b,
-        padding=35
+        padding_a=17,   # верхний текст, в два раза меньше
+        padding_b=35    # нижний текст, как раньше
     )
+
 
     await update.message.reply_photo(photo=InputFile(image_bytes, filename="poster.png"))
     return ConversationHandler.END

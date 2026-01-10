@@ -7,9 +7,9 @@ def overlay_text_on_image(
     text_a,
     text_b,
     y_a_percent=8,
-    y_b_percent=80,
+    y_b_percent=87,
     font_path="assets/fonts/Roboto-Regular.ttf",
-    font_size_a=50,   # размер в два раза меньше
+    font_size_a=50,   # верхний текст в два раза меньше
     font_size_b=100,
     fill_color="white",
     stroke_width=2,
@@ -17,11 +17,12 @@ def overlay_text_on_image(
     bg_color_a=None,  # цвет плашки верхнего текста
     bg_color_b=None,  # цвет плашки нижнего текста
     bg_opacity=180,
-    padding=35
+    padding_a=17,     # верхняя плашка: уменьшенный паддинг
+    padding_b=30      # нижняя плашка: стандартный паддинг
 ):
     """
     Генерация постера с двумя текстовыми блоками с плашками.
-    Нижний и верхний текст центрированы по высоте плашки.
+    Верхняя плашка с меньшим паддингом, нижняя с обычным.
     """
 
     img = Image.open(image_path).convert("RGBA")
@@ -38,12 +39,12 @@ def overlay_text_on_image(
         bbox_a = draw.textbbox((0, 0), text_a, font=font_a)
         text_width_a = bbox_a[2] - bbox_a[0]
 
-        block_height_a = text_vheight + padding * 2
+        block_height_a = text_vheight + padding_a * 2
         block_center_y_a = height * (y_a_percent / 100)
         rect_y0_a = block_center_y_a - block_height_a / 2
         rect_y1_a = rect_y0_a + block_height_a
-        rect_x0_a = (width - text_width_a) / 2 - padding
-        rect_x1_a = rect_x0_a + text_width_a + padding * 2
+        rect_x0_a = (width - text_width_a) / 2 - padding_a
+        rect_x1_a = rect_x0_a + text_width_a + padding_a * 2
 
         # плашка верхнего текста
         if bg_color_a:
@@ -78,12 +79,12 @@ def overlay_text_on_image(
         bbox_b = draw.textbbox((0, 0), text_b, font=font_b)
         text_width_b = bbox_b[2] - bbox_b[0]
 
-        block_height_b = text_vheight + padding * 2
+        block_height_b = text_vheight + padding_b * 2
         block_center_y_b = height * (y_b_percent / 100)
         rect_y0_b = block_center_y_b - block_height_b / 2
         rect_y1_b = rect_y0_b + block_height_b
-        rect_x0_b = (width - text_width_b) / 2 - padding
-        rect_x1_b = rect_x0_b + text_width_b + padding * 2
+        rect_x0_b = (width - text_width_b) / 2 - padding_b
+        rect_x1_b = rect_x0_b + text_width_b + padding_b * 2
 
         # плашка нижнего текста
         if bg_color_b:
