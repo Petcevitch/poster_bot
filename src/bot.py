@@ -14,9 +14,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Этапы разговора
-TEXT_A, TEXT_B_CHOICE, TEXT_B, COLOR_CHOICE, PHOTO = range(5)
+(
+    TEXT_A, COLOR_CHOICE_A,
+    TEXT_B_CHOICE, TEXT_B, COLOR_CHOICE_B,
+    PHOTO
+) = range(6)
 
-# Готовые варианты текста для нижней надписи
+# Готовые варианты текста нижнего текста
 ROUND_CHOICES = [
     "ПЕРВЫЙ РАУНД",
     "ВТОРОЙ РАУНД ВЕРХ",
@@ -38,19 +42,35 @@ COLOR_CHOICES = [
     ("Чёрный", "black")
 ]
 
-# -----------------------
-# Команда /start
-# -----------------------
+# -------------------
+# /start
+# -------------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Введи текст для верхней надписи:")
+    await update.message.reply_text("Введите текст для верхней надписи:")
     return TEXT_A
 
-# -----------------------
-# Ввод текста A
-# -----------------------
+# -------------------
+# Верхний текст
+# -------------------
 async def get_text_a(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["text_a"] = update.message.text
-    # Показать варианты нижнего текста
+    # выбор цвета плашки верхнего текста
+    keyboard = []
+    for i in range(0, len(COLOR_CHOICES), 2):
+        row = [InlineKeyboardButton(COLOR_CHOICES[i][0], callback_data=COLOR_CHOICES[i][1])]
+        if i+1 < len(COLOR_CHOICES):
+            row.append(InlineKeyboardButton(COLOR_CHOICES[i+1][0], callback_data=COLOR_CHOICES[i+1][1]))
+        keyboard.append(row)
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Выберите цвет плашки для верхнего текста:", reply_markup=reply_markup)
+    return COLOR_CHOICE_A
+
+async def color_choice_a_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    context.user_data["bg_color_a"] = query.data
+
+    # Далее нижний текст
     keyboard = []
     for i in range(0, len(ROUND_CHOICES), 2):
         row = [InlineKeyboardButton(ROUND_CHOICES[i], callback_data=ROUND_CHOICES[i])]
@@ -58,12 +78,12 @@ async def get_text_a(update: Update, context: ContextTypes.DEFAULT_TYPE):
             row.append(InlineKeyboardButton(ROUND_CHOICES[i+1], callback_data=ROUND_CHOICES[i+1]))
         keyboard.append(row)
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Выберите текст для нижней надписи:", reply_markup=reply_markup)
+    await query.message.reply_text("Выберите текст для нижней надписи:", reply_markup=reply_markup)
     return TEXT_B_CHOICE
 
-# -----------------------
-# Обработка выбора нижнего текста
-# -----------------------
+# -------------------
+# Нижний текст
+# -------------------
 async def text_b_choice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -73,21 +93,18 @@ async def text_b_choice_handler(update: Update, context: ContextTypes.DEFAULT_TY
         return TEXT_B
     else:
         context.user_data["text_b"] = choice
-        await show_color_choice(query, context)
-        return COLOR_CHOICE
+        await show_color_choice_b(update=query, context=context)
+        return COLOR_CHOICE_B
 
-# -----------------------
-# Получение собственного текста B
-# -----------------------
 async def get_text_b(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["text_b"] = update.message.text
-    await show_color_choice(update, context)
-    return COLOR_CHOICE
+    await show_color_choice_b(update=update, context=context)
+    return COLOR_CHOICE_B
 
-# -----------------------
-# Показ выбора цвета плашки
-# -----------------------
-async def show_color_choice(update_or_query, context):
+# -------------------
+# Выбор цвета нижней плашки
+# -------------------
+async def show_color_choice_b(update, context):
     keyboard = []
     for i in range(0, len(COLOR_CHOICES), 2):
         row = [InlineKeyboardButton(COLOR_CHOICES[i][0], callback_data=COLOR_CHOICES[i][1])]
@@ -95,57 +112,56 @@ async def show_color_choice(update_or_query, context):
             row.append(InlineKeyboardButton(COLOR_CHOICES[i+1][0], callback_data=COLOR_CHOICES[i+1][1]))
         keyboard.append(row)
     reply_markup = InlineKeyboardMarkup(keyboard)
-    if hasattr(update_or_query, "message"):
-        await update_or_query.message.reply_text("Выберите цвет плашки:", reply_markup=reply_markup)
+    if hasattr(update, "message"):
+        await update.message.reply_text("Выберите цвет плашки для нижнего текста:", reply_markup=reply_markup)
     else:
-        await update_or_query.edit_message_text("Выберите цвет плашки:", reply_markup=reply_markup)
+        await update.edit_message_text("Выберите цвет плашки для нижнего текста:", reply_markup=reply_markup)
 
-# -----------------------
-# Обработка выбора цвета
-# -----------------------
-async def color_choice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def color_choice_b_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    context.user_data["bg_color"] = query.data
+    context.user_data["bg_color_b"] = query.data
     await query.message.reply_text("Теперь отправьте фото для генерации постера:")
     return PHOTO
 
-# -----------------------
-# Получение фото и генерация постера
-# -----------------------
+# -------------------
+# Получение фото
+# -------------------
 async def get_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photo_file = await update.message.photo[-1].get_file()
     photo_path = "temp.jpg"
     await photo_file.download_to_drive(photo_path)
 
-    text_a = context.user_data.get("text_a", "Текст сверху")
-    text_b = context.user_data.get("text_b", "Текст снизу")
-    bg_color = context.user_data.get("bg_color", None)
+    text_a = context.user_data.get("text_a", "")
+    text_b = context.user_data.get("text_b", "")
+    bg_color_a = context.user_data.get("bg_color_a", None)
+    bg_color_b = context.user_data.get("bg_color_b", None)
 
     image_bytes = overlay_text_on_image(
         photo_path,
         text_a,
         text_b,
         font_path=FONT_PATH,
-        font_size_a=60,
+        font_size_a=50,
         font_size_b=100,
-        bg_color=bg_color,
+        bg_color_a=bg_color_a,
+        bg_color_b=bg_color_b,
         padding=35
     )
 
     await update.message.reply_photo(photo=InputFile(image_bytes, filename="poster.png"))
     return ConversationHandler.END
 
-# -----------------------
-# Команда /cancel
-# -----------------------
+# -------------------
+# /cancel
+# -------------------
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Создание постера отменено.")
     return ConversationHandler.END
 
-# -----------------------
-# Основная функция запуска бота
-# -----------------------
+# -------------------
+# main
+# -------------------
 def main():
     if not BOT_TOKEN:
         logger.error("Не найден токен бота. Добавьте BOT_TOKEN в .env")
@@ -157,9 +173,10 @@ def main():
         entry_points=[CommandHandler("start", start)],
         states={
             TEXT_A: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_text_a)],
+            COLOR_CHOICE_A: [CallbackQueryHandler(color_choice_a_handler)],
             TEXT_B_CHOICE: [CallbackQueryHandler(text_b_choice_handler)],
             TEXT_B: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_text_b)],
-            COLOR_CHOICE: [CallbackQueryHandler(color_choice_handler)],
+            COLOR_CHOICE_B: [CallbackQueryHandler(color_choice_b_handler)],
             PHOTO: [MessageHandler(filters.PHOTO, get_photo)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
@@ -168,6 +185,7 @@ def main():
     app.add_handler(conv_handler)
     logger.info("Бот запущен...")
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
